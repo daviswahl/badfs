@@ -4,10 +4,21 @@
 extern crate libc;
 extern crate errno;
 
+#[macro_use]
+extern crate serde_derive;
+
+extern crate serde;
+extern crate rmp_serde;
+
 use libc::*;
 use std::ffi;
 use std::sync::RwLock;
 use std::*;
+use std::collections::HashMap;
+use std::io::Write;
+
+use serde::Serialize;
+use serde::Deserialize;
 
 
 // Import the macro. Don't forget to add `error-chain` in your
@@ -52,6 +63,7 @@ impl Device {
                 S_IRUSR as c_uint | S_IWUSR as c_uint,
             )
         };
+
         errno!(fd).map(|fd| {
             Device {
                 fd: fd,
@@ -88,13 +100,67 @@ impl Device {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+enum Indirect {
+    Inode(Inode),
+    Block(i64),
+}
 
+#[derive(Serialize, Deserialize, Debug)]
+enum Inode {
+    File { blocklist: Vec<Indirect> },
+    Directory(HashMap<String, Inode>),
+}
+
+struct FileSystem {
+    device: Device,
+    metadata: Metadata,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Metadata {
+    freelist: Vec<u8>,
+    inodes: Vec<Inode>,
+}
+
+impl FileSystem {
+    fn mount(device: Device) -> Result<FileSystem> {
+        let mut buf: [u8; BLOCK_SIZE as usize] = [0; BLOCK_SIZE as usize];
+
+        let bytes_read = device.read_block(0, &mut buf).chain_err(
+            || "corrupt header",
+        )?;
+        let metadata = if bytes_read == 0 {
+            let metadata = Metadata {
+                freelist: vec![],
+                inodes: vec![],
+            };
+            metadata
+                .serialize(&mut rmp_serde::Serializer::new(&mut buf.as_mut()))
+                .chain_err(|| "corrupt header")?;
+            device.write_block(0, &mut buf);
+            metadata
+        } else {
+            let mut de = rmp_serde::Deserializer::new(&buf[..]);
+            Deserialize::deserialize(&mut de).chain_err(
+                || "corrupt header",
+            )?
+        };
+        Ok(FileSystem {
+            device: device,
+            metadata: metadata,
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn test_mutex() {}
+    fn test_mount() {
+        let dev = Device::open("foo.txt", 1024 * 100).unwrap();
+        let fsys = FileSystem::mount(dev).unwrap();
+    }
     #[test]
     fn it_works() {
         let dev = Device::open("bar.txt", 1024 * 100).unwrap();
