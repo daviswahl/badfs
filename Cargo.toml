@@ -1,0 +1,7 @@
+[package]
+name = "fs"
+version = "0.1.0"
+authors = ["Davis Wahl <daviswahl@gmail.com>"]
+
+[dependencies]
+libc = "0.2"
