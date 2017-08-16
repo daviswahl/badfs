@@ -5,3 +5,5 @@ authors = ["Davis Wahl <daviswahl@gmail.com>"]
 
 [dependencies]
 libc = "0.2"
+errno = "0.2.3"
+error-chain = "0.11.0-rc.2"
