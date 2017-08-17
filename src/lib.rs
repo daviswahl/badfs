@@ -158,12 +158,12 @@ mod tests {
     use super::*;
     #[test]
     fn test_mount() {
-        let dev = Device::open("foo.txt", 1024 * 100).unwrap();
+        let dev = Device::open("testing/foo.txt", 1024 * 100).unwrap();
         let fsys = FileSystem::mount(dev).unwrap();
     }
     #[test]
     fn it_works() {
-        let dev = Device::open("bar.txt", 1024 * 100).unwrap();
+        let dev = Device::open("testing/bar.txt", 1024 * 100).unwrap();
 
         let data = b"asdffdsdf";
         let written = dev.write_block(0, data);
